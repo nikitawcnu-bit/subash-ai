@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-44%20passed-brightgreen)
+[![tests](https://github.com/nikitawcnu-bit/subash-ai/actions/workflows/tests.yml/badge.svg)](https://github.com/nikitawcnu-bit/subash-ai/actions)
 ![NumPy](https://img.shields.io/badge/NumPy-only-orange)
 
 **Своя нейросеть на Python с нуля** — без PyTorch, TensorFlow и JAX. Только NumPy,
