@@ -9,7 +9,7 @@ description = "Subash AI — учебный фреймворк нейросет�
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Subash AI" }]
+authors = [{ name = "sunset.ai", email = "nikita.wcnu@gmail.com" }]
 keywords = ["neural-networks", "autograd", "transformer", "numpy", "education"]
 classifiers = [
     "Programming Language :: Python :: 3",
