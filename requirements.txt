@@ -1,0 +1,3 @@
+numpy>=1.24
+# нужен только для scripts/build_corpus.py (пересборка корпуса)
+beautifulsoup4>=4.12
