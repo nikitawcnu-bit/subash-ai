@@ -24,9 +24,11 @@ Subash/
 │   ├── data.py        # char-level токенизатор, батчи, спираль/XOR/луны
 │   ├── checkpoint.py  # сохранение/загрузка модели в один .npz
 │   └── utils.py       # сид, подсчёт параметров, таймер
-├── examples/          # обучение и генерация
+├── examples/          # обучение и генерация из консоли
+├── app/               # GUI на Tkinter и сборка .exe
+├── assets/            # иконка, скриншоты, графики
 ├── tests/             # 44 теста, включая численную проверку градиентов
-├── scripts/           # сборка корпуса из Викитеки
+├── scripts/           # сборка корпуса, иконки и графиков
 └── data/pushkin.txt   # корпус: 5 сказок А. С. Пушкина, 53 609 символов
 ```
 
@@ -52,6 +54,24 @@ python examples/chat.py
 # тесты
 python -m unittest discover -s tests
 ```
+
+## Приложение для Windows
+
+Готовый **`SubashAI.exe`** (23 МБ, Python не нужен) лежит в
+[Releases](https://github.com/nikitawcnu-bit/subash-ai/releases/latest):
+скачай, запусти и введи начало фразы. Внутри — Python, NumPy, Tkinter и веса модели.
+
+![Subash AI для Windows](assets/app.png)
+
+Собрать самому:
+
+```powershell
+pip install pyinstaller pillow
+powershell -ExecutionPolicy Bypass -File app\build_exe.ps1
+```
+
+Windows может показать SmartScreen, потому что exe не подписан:
+**Подробнее → Выполнить всё равно**.
 
 ## Результаты
 
