@@ -21,6 +21,8 @@ try {
         --add-data "$root\assets\subash.ico;assets" `
         --paths "$root" `
         --collect-submodules subash `
+        --collect-all customtkinter `
+        --hidden-import PIL._tkinter_finder `
         --distpath "$root\dist" `
         --workpath "$root\build\pyinstaller" `
         --specpath "$root\build" `

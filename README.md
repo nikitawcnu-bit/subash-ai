@@ -25,10 +25,11 @@ Subash/
 │   ├── checkpoint.py  # сохранение/загрузка модели в один .npz
 │   └── utils.py       # сид, подсчёт параметров, таймер
 ├── examples/          # обучение и генерация из консоли
-├── app/               # GUI на Tkinter и сборка .exe
+├── app/               # GUI на customtkinter и сборка .exe
+├── installer/         # NSIS-скрипт и сборка установщика
 ├── assets/            # иконка, скриншоты, графики
 ├── tests/             # 44 теста, включая численную проверку градиентов
-├── scripts/           # сборка корпуса, иконки и графиков
+├── scripts/           # сборка корпуса, иконки, баннеров и графиков
 └── data/pushkin.txt   # корпус: 5 сказок А. С. Пушкина, 53 609 символов
 ```
 
@@ -57,20 +58,27 @@ python -m unittest discover -s tests
 
 ## Приложение для Windows
 
-Готовый **`SubashAI.exe`** (23 МБ, Python не нужен) лежит в
-[Releases](https://github.com/nikitawcnu-bit/subash-ai/releases/latest):
-скачай, запусти и введи начало фразы. Внутри — Python, NumPy, Tkinter и веса модели.
+Два варианта, оба лежат в [Releases](https://github.com/nikitawcnu-bit/subash-ai/releases/latest):
+
+- **Установщик** `SubashAI-Setup-0.2.0.exe` (~30 МБ) — ярлык в меню «Пуск»,
+  деинсталлятор и запись в «Программы и компоненты». Ставится в профиль
+  пользователя (`%LOCALAPPDATA%\Programs\Subash AI`), права администратора не нужны.
+- **Портативный** `SubashAI.exe` (~30 МБ) — просто запустить, ничего не устанавливается.
+
+Python не нужен: внутри интерпретатор, NumPy, customtkinter и веса модели.
 
 ![Subash AI для Windows](assets/app.png)
 
 Собрать самому:
 
 ```powershell
-pip install pyinstaller pillow
+pip install -r requirements.txt pyinstaller
 powershell -ExecutionPolicy Bypass -File app\build_exe.ps1
+powershell -ExecutionPolicy Bypass -File installer\build_setup.ps1
 ```
 
-Windows может показать SmartScreen, потому что exe не подписан:
+Первый скрипт собирает exe, второй — установщик (NSIS скачается автоматически).
+Windows может показать SmartScreen, потому что файлы не подписаны:
 **Подробнее → Выполнить всё равно**.
 
 ## Результаты

@@ -1,3 +1,5 @@
 numpy>=1.24
+customtkinter>=5.2
+pillow>=10
 # нужен только для scripts/build_corpus.py (пересборка корпуса)
 beautifulsoup4>=4.12
