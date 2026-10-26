@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "installer" / "assets"
 ICON = ROOT / "assets" / "subash.ico"
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 BG_TOP = (11, 18, 32)
 BG_BOTTOM = (14, 28, 48)

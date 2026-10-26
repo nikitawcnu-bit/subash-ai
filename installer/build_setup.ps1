@@ -34,7 +34,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "makensis failed with exit code $LASTEXITCODE"
 }
 
-$setup = Join-Path $root "dist\SubashAI-Setup-0.2.0.exe"
+$setup = Join-Path $root "dist\SubashAI-Setup-0.3.0.exe"
 if (-not (Test-Path $setup)) {
     throw "Installer was not created: $setup"
 }

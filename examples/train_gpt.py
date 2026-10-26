@@ -66,6 +66,14 @@ def main() -> None:
     parser.add_argument("--eval-every", type=int, default=200)
     parser.add_argument("--sample-every", type=int, default=400)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--out", type=str, default=str(ROOT / "checkpoints" / "gpt_pushkin.npz"),
+                        help="куда сохранить чекпойнт")
+    parser.add_argument("--samples-file", type=str,
+                        default=str(ROOT / "checkpoints" / "samples.txt"))
+    parser.add_argument("--prompt", type=str, default="Три девицы под окном")
+    parser.add_argument("--sample-tokens", type=int, default=110)
+    parser.add_argument("--save-every", type=int, default=0,
+                        help="сохранять чекпойнт каждые N шагов (0 — только в конце)")
     parser.add_argument("--init-from", type=str, default=None,
                         help="продолжить обучение с чекпойнта")
     parser.add_argument("--quick", action="store_true", help="маленькая модель и 60 шагов")
@@ -105,7 +113,7 @@ def main() -> None:
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.95),
                             weight_decay=args.weight_decay)
     rng = np.random.default_rng(args.seed)
-    prompt = "Три девицы под окном"
+    prompt = args.prompt
     samples: list[str] = []
     start = time.perf_counter()
     smooth_loss = None
@@ -132,20 +140,27 @@ def main() -> None:
             print(f"           val loss {val_loss:.4f} | perplexity {np.exp(val_loss):.1f}")
 
         if (step + 1) % args.sample_every == 0 or step == args.steps - 1:
-            text = sample(model, tokenizer, prompt, tokens=110, temperature=0.85, top_k=40)
+            text = sample(model, tokenizer, prompt, tokens=args.sample_tokens,
+                          temperature=0.85, top_k=40)
             print("           ---\n" + "\n".join("           " + line for line in text.splitlines())
                   + "\n           ---")
             samples.append(f"=== шаг {step + 1} ===\n{text}\n")
+
+        if args.save_every and (step + 1) % args.save_every == 0:
+            save_checkpoint(model, Path(args.out), tokenizer)
+            print(f"           чекпойнт сохранён: {args.out}")
 
     elapsed = time.perf_counter() - start
     val_loss = evaluate(model, dataset, args.batch_size, args.block_size, rng)
     print(f"\nГотово за {format_time(elapsed)}, val loss {val_loss:.4f}, "
           f"perplexity {np.exp(val_loss):.1f}")
 
-    ckpt = save_checkpoint(model, ROOT / "checkpoints" / "gpt_pushkin.npz", tokenizer)
-    (ROOT / "checkpoints").mkdir(exist_ok=True)
-    (ROOT / "checkpoints" / "samples.txt").write_text("\n".join(samples), encoding="utf-8")
+    ckpt = save_checkpoint(model, Path(args.out), tokenizer)
+    samples_path = Path(args.samples_file)
+    samples_path.parent.mkdir(parents=True, exist_ok=True)
+    samples_path.write_text("\n".join(samples), encoding="utf-8")
     print(f"Чекпойнт: {ckpt}")
+    print(f"Примеры: {samples_path}")
 
 
 if __name__ == "__main__":

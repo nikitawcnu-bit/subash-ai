@@ -18,6 +18,7 @@ try {
         --name SubashAI `
         --icon "$root\assets\subash.ico" `
         --add-data "$root\checkpoints\gpt_pushkin.npz;checkpoints" `
+        --add-data "$root\checkpoints\gpt_code.npz;checkpoints" `
         --add-data "$root\assets\subash.ico;assets" `
         --paths "$root" `
         --collect-submodules subash `

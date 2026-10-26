@@ -6,7 +6,7 @@ Unicode true
 !include "FileFunc.nsh"
 
 !define APP_NAME "Subash AI"
-!define APP_VERSION "0.2.0"
+!define APP_VERSION "0.3.0"
 !define APP_PUBLISHER "sunset.ai"
 !define APP_URL "https://github.com/nikitawcnu-bit/subash-ai"
 !define APP_EXE "SubashAI.exe"
@@ -24,11 +24,11 @@ SetDatablockOptimize on
 CRCCheck on
 XPStyle on
 
-VIProductVersion "0.2.0.0"
+VIProductVersion "0.3.0.0"
 VIAddVersionKey "ProductName" "${APP_NAME}"
 VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey "FileDescription" "Subash AI installer"
-VIAddVersionKey "FileVersion" "0.2.0.0"
+VIAddVersionKey "FileVersion" "0.3.0.0"
 VIAddVersionKey "LegalCopyright" "MIT License"
 VIAddVersionKey "CompanyName" "${APP_PUBLISHER}"
 

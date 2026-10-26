@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
@@ -55,9 +56,16 @@ def parse_log(path: Path):
 
 
 def main() -> None:
-    train, val = parse_log(LOG)
+    parser = argparse.ArgumentParser(description="Кривая обучения по логу train_gpt.py")
+    parser.add_argument("--log", default=str(LOG))
+    parser.add_argument("--out", default=str(OUT))
+    parser.add_argument("--title", default="Subash AI: обучение мини-GPT на сказках Пушкина")
+    args = parser.parse_args()
+    log, out = Path(args.log), Path(args.out)
+
+    train, val = parse_log(log)
     if not train:
-        raise SystemExit(f"Нет данных в {LOG}")
+        raise SystemExit(f"Нет данных в {log}")
 
     max_step = max(train[-1][0], 1)
     max_loss = 5.0
@@ -99,7 +107,7 @@ def main() -> None:
     if len(val) > 1:
         draw.line([(px(s), py(v)) for s, v in val], fill=VAL_COLOR, width=2)
 
-    draw.text((LEFT, 22), "Subash AI: обучение мини-GPT на сказках Пушкина",
+    draw.text((LEFT, 22), args.title,
               fill=(30, 30, 30), font=font)
     draw.text((LEFT - 8, TOP - 20), "loss", fill=AXIS_COLOR, font=tiny, anchor="ra")
     draw.text((W - RIGHT, H - BOTTOM + 26), "шаг", fill=AXIS_COLOR, font=tiny, anchor="ra")
@@ -109,9 +117,9 @@ def main() -> None:
     draw.ellipse((LEFT + 210, legend_y - 4, LEFT + 218, legend_y + 4), fill=VAL_COLOR)
     draw.text((LEFT + 226, legend_y - 8), "val", fill=(60, 60, 60), font=small)
 
-    OUT.parent.mkdir(exist_ok=True)
-    img.save(OUT)
-    print(f"Сохранено: {OUT} ({len(train)} точек train, {len(val)} точек val)")
+    out.parent.mkdir(exist_ok=True)
+    img.save(out)
+    print(f"Сохранено: {out} ({len(train)} точек train, {len(val)} точек val)")
 
 
 if __name__ == "__main__":

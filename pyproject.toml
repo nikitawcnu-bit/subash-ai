@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "subash-ai"
-version = "0.2.0"
-description = "Subash AI — учебный фреймворк нейросетей на чистом NumPy: autograd, MLP и мини-GPT"
+version = "0.3.0"
+description = "Subash AI — учебный фреймворк нейросетей на чистом NumPy: autograd, MLP и мини-GPT для кода и текста"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

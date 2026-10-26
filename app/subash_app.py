@@ -30,13 +30,49 @@ ACCENT = "#4cc2ff"
 ACCENT_HOVER = "#7ad4ff"
 DIM = "#5f7896"
 
-DEFAULT_PROMPT = "Князь у синя моря ходит"
-EXAMPLES = [
-    ("Князь у синя моря ходит", "Из «Сказки о царе Салтане»"),
-    ("Три девицы под окном", "Начало сказки"),
-    ("Свет мой, зеркальце! скажи", "Диалог с зеркальцем"),
-    ("Ветер по морю гуляет", "Кораблик и волны"),
-]
+DEFAULT_KEY = "code"
+MODELS = {
+    "code": {
+        "file": "checkpoints/gpt_code.npz",
+        "label": "Код",
+        "title": "Генерация кода",
+        "subtitle": "Python-код в стиле стандартной библиотеки",
+        "window_title": "Subash AI — генерация кода",
+        "prompt": "def ",
+        "caption": "НАЧАЛО КОДА",
+        "entry_placeholder": "Введите начало кода…",
+        "placeholder": "Здесь появится Python-код…",
+        "button": "Дописать код",
+        "temp": 0.5,
+        "font": ("Consolas", 13),
+        "examples": [
+            ("def ", "объявление функции"),
+            ("class ", "класс"),
+            ("import ", "импорт модуля"),
+            ("async def ", "корутина"),
+        ],
+    },
+    "pushkin": {
+        "file": "checkpoints/gpt_pushkin.npz",
+        "label": "Пушкин",
+        "title": "Генерация текста",
+        "subtitle": "Продолжение в стиле Александра Сергеевича Пушкина",
+        "window_title": "Subash AI — генератор текста",
+        "prompt": "Князь у синя моря ходит",
+        "caption": "НАЧАЛО ФРАЗЫ",
+        "entry_placeholder": "Введите начало фразы…",
+        "placeholder": "Здесь появится продолжение…",
+        "button": "Продолжить текст",
+        "temp": 0.75,
+        "font": ("Georgia", 15),
+        "examples": [
+            ("Князь у синя моря ходит", "Из «Сказки о царе Салтане»"),
+            ("Три девицы под окном", "Начало сказки"),
+            ("Свет мой, зеркальце! скажи", "Диалог с зеркальцем"),
+            ("Ветер по морю гуляет", "Кораблик и волны"),
+        ],
+    },
+}
 
 
 def resource_path(relative: str) -> Path:
@@ -54,22 +90,31 @@ def symbols_text(count: int) -> str:
     return f"{count} символов"
 
 
-def load_model():
+def load_models():
     from subash import load_checkpoint
 
-    path = resource_path("checkpoints/gpt_pushkin.npz")
-    model, tokenizer = load_checkpoint(path)
-    model.eval()
-    return model, tokenizer
+    models = {}
+    for key, meta in MODELS.items():
+        path = resource_path(meta["file"])
+        if not path.exists():
+            continue
+        model, tokenizer = load_checkpoint(path)
+        model.eval()
+        models[key] = {**meta, "model": model, "tokenizer": tokenizer}
+    if not models:
+        raise FileNotFoundError("Не найдены чекпойнты в checkpoints/")
+    return models
 
 
 def run_selftest() -> int:
     """Проверка собранного exe без GUI: пишет результат в TEMP."""
     out_path = Path(tempfile.gettempdir()) / "subash_selftest.txt"
     try:
-        model, tokenizer = load_model()
-        ids = tokenizer.encode_safe(DEFAULT_PROMPT)
-        result = model.generate(ids, max_new_tokens=24, temperature=0.6, top_k=20)
+        models = load_models()
+        entry = models.get("code") or next(iter(models.values()))
+        tokenizer = entry["tokenizer"]
+        ids = tokenizer.encode_safe(entry["prompt"])
+        result = entry["model"].generate(ids, max_new_tokens=32, temperature=0.6, top_k=20)
         out_path.write_text(tokenizer.decode(result[0]), encoding="utf-8")
         return 0
     except Exception:
@@ -78,7 +123,7 @@ def run_selftest() -> int:
 
 
 class App:
-    def __init__(self, root, model, tokenizer):
+    def __init__(self, root, models):
         import customtkinter as ctk
         import tkinter as tk
         from PIL import Image
@@ -86,13 +131,15 @@ class App:
         self.ctk = ctk
         self.tk = tk
         self.root = root
-        self.model = model
-        self.tokenizer = tokenizer
+        self.models = models
+        self.current_key = DEFAULT_KEY if DEFAULT_KEY in models else next(iter(models))
+        self.entry = models[self.current_key]
+        self.model = self.entry["model"]
+        self.tokenizer = self.entry["tokenizer"]
         self._busy = False
         self._results: queue.Queue = queue.Queue()
         self._last_text = ""
 
-        root.title("Subash AI — генератор текста")
         root.minsize(1000, 680)
         root.configure(fg_color=BG)
         root.grid_columnconfigure(0, weight=0)
@@ -109,17 +156,19 @@ class App:
             light_image=Image.open(icon), dark_image=Image.open(icon), size=(52, 52)
         ) if icon.exists() else None
 
+        self.stats_values: dict = {}
+        self.quick_buttons: list = []
+        self.quick_hints: list = []
+
         self._build_sidebar()
         self._build_main()
+        self._apply_model(self.current_key)
         self._center(1120, 760)
         self._dark_title_bar()
         self.prompt_entry.focus_set()
         self.root.bind("<Control-Return>", lambda _e: self.on_generate())
         self.root.after(60, self._poll_results)
         self.root.after(200, self._focus_prompt)
-        self._set_status(
-            f"Модель загружена · {model.num_parameters():,} параметров".replace(",", " ")
-        )
 
     # ------------------------------------------------------------------ #
     #  Каркас
@@ -169,6 +218,58 @@ class App:
             font=("Segoe UI", 12), anchor="w", corner_radius=8, border_width=0,
         )
 
+    def _on_model_switch(self, value: str):
+        if self._busy:
+            self.model_switch.set(self.entry["label"])
+            return
+        for key, entry in self.models.items():
+            if entry["label"] == value:
+                self._apply_model(key)
+                break
+
+    def _apply_model(self, key: str):
+        entry = self.models[key]
+        self.current_key = key
+        self.entry = entry
+        self.model = entry["model"]
+        self.tokenizer = entry["tokenizer"]
+        args = self.model.config["args"]
+
+        self.title_label.configure(text=entry["title"])
+        self.subtitle_label.configure(text=entry["subtitle"])
+        self.prompt_caption.configure(text=entry["caption"])
+        self.prompt_entry.configure(placeholder_text=entry["entry_placeholder"])
+        self.placeholder.configure(text=entry["placeholder"])
+        self.output.configure(font=entry["font"])
+        self.temp_slider.set(entry["temp"])
+        self.temp_value.set(f"{entry['temp']:.2f}")
+        self.root.title(entry["window_title"])
+        self.model_switch.set(entry["label"])
+
+        self.stats_values["Параметров"].configure(
+            text=f"{self.model.num_parameters():,}".replace(",", " ")
+        )
+        self.stats_values["Слоёв"].configure(text=str(args["n_layer"]))
+        self.stats_values["Голов"].configure(text=str(args["n_head"]))
+        self.stats_values["Эмбеддингов"].configure(text=str(args["n_embd"]))
+        self.stats_values["Словарь"].configure(text=f"{self.tokenizer.vocab_size} символов")
+
+        for i, (prompt, hint) in enumerate(entry["examples"]):
+            self.quick_buttons[i].configure(
+                text=f"›  {prompt}", command=lambda p=prompt: self._use_prompt(p)
+            )
+            self.quick_hints[i].configure(text=f"   {hint}")
+
+        self.prompt_entry.delete(0, "end")
+        self.prompt_entry.insert(0, entry["prompt"])
+        self.on_clear()
+        self._set_status(
+            f"Модель загружена · {self.model.num_parameters():,} параметров · "
+            f"словарь {self.tokenizer.vocab_size} символов".replace(",", " ")
+        )
+        if not self._busy:
+            self.generate_button.configure(text=entry["button"])
+
     def _build_sidebar(self):
         ctk = self.ctk
         sidebar = ctk.CTkFrame(self.root, width=272, corner_radius=0, fg_color=SIDEBAR)
@@ -176,7 +277,7 @@ class App:
         sidebar.grid_propagate(False)
 
         brand = ctk.CTkFrame(sidebar, fg_color="transparent")
-        brand.pack(fill="x", padx=20, pady=(24, 0))
+        brand.pack(fill="x", padx=20, pady=(16, 0))
         if self._logo is not None:
             ctk.CTkLabel(brand, text="", image=self._logo).pack(side="left")
         titles = ctk.CTkFrame(brand, fg_color="transparent")
@@ -186,48 +287,55 @@ class App:
         ctk.CTkLabel(titles, text="мини-GPT на NumPy", text_color=MUTED,
                      font=("Segoe UI", 11), anchor="w").pack(fill="x")
 
-        self._divider(sidebar)
+        self._divider(sidebar, pady=(10, 10))
 
-        self._section(sidebar, "Модель").pack(fill="x", padx=22, pady=(0, 8))
+        self.model_switch = ctk.CTkSegmentedButton(
+            sidebar, values=[m["label"] for m in self.models.values()],
+            command=self._on_model_switch, height=32, corner_radius=9,
+            selected_color=ACCENT, selected_hover_color=ACCENT_HOVER,
+            unselected_color=CARD, unselected_hover_color="#1a2a42",
+            text_color=FG, font=("Segoe UI", 11, "bold"),
+        )
+        self.model_switch.pack(fill="x", padx=16, pady=(0, 4))
+        self.model_switch.set(self.entry["label"])
+
+        self._section(sidebar, "Модель").pack(fill="x", padx=22, pady=(6, 4))
         card = ctk.CTkFrame(sidebar, fg_color=CARD, corner_radius=12)
         card.pack(fill="x", padx=16)
-        rows = [
-            ("Параметров", f"{self.model.num_parameters():,}".replace(",", " ")),
-            ("Слоёв", "2"),
-            ("Голов", "4"),
-            ("Эмбеддингов", "96"),
-            ("Словарь", f"{self.tokenizer.vocab_size} символов"),
-        ]
-        for i, (label, value) in enumerate(rows):
+        rows = ["Параметров", "Слоёв", "Голов", "Эмбеддингов", "Словарь"]
+        for i, label in enumerate(rows):
             ctk.CTkLabel(card, text=label, text_color=MUTED,
                          font=("Segoe UI", 11), anchor="w").grid(
-                row=i, column=0, sticky="w", padx=(14, 8), pady=(7 if i == 0 else 2, 2))
-            ctk.CTkLabel(card, text=value, text_color=FG,
-                         font=("Segoe UI", 11, "bold"), anchor="e").grid(
-                row=i, column=1, sticky="e", padx=(8, 14), pady=(7 if i == 0 else 2, 2))
+                row=i, column=0, sticky="w", padx=(14, 8), pady=(4 if i == 0 else 1, 1))
+            value_label = ctk.CTkLabel(card, text="—", text_color=FG,
+                                       font=("Segoe UI", 11, "bold"), anchor="e")
+            value_label.grid(row=i, column=1, sticky="e", padx=(8, 14),
+                             pady=(4 if i == 0 else 1, 1))
+            self.stats_values[label] = value_label
         card.grid_columnconfigure(0, weight=1)
 
-        self._section(sidebar, "Быстрые промпты").pack(fill="x", padx=22, pady=(20, 6))
-        for prompt, hint in EXAMPLES:
-            button = self._ghost_button(
-                sidebar, f"›  {prompt}", lambda _=None, p=prompt: self._use_prompt(p)
-            )
+        self._section(sidebar, "Быстрые промпты").pack(fill="x", padx=22, pady=(12, 4))
+        for _ in range(4):
+            button = self._ghost_button(sidebar, "", lambda _=None: None, height=28)
             button.pack(fill="x", padx=14, pady=1)
-            ctk.CTkLabel(sidebar, text=f"   {hint}", text_color=DIM,
-                         font=("Segoe UI", 9), anchor="w").pack(fill="x", padx=22, pady=(0, 4))
+            hint = ctk.CTkLabel(sidebar, text="", text_color=DIM,
+                                font=("Segoe UI", 9), anchor="w")
+            hint.pack(fill="x", padx=22, pady=(0, 2))
+            self.quick_buttons.append(button)
+            self.quick_hints.append(hint)
 
         bottom = ctk.CTkFrame(sidebar, fg_color="transparent")
         bottom.pack(side="bottom", fill="x")
-        self._divider(bottom, pady=(8, 8))
+        self._divider(bottom, pady=(6, 6))
         self._ghost_button(bottom, "GitHub репозитория  ↗",
                            lambda: self._open("https://github.com/nikitawcnu-bit/subash-ai")).pack(
             fill="x", padx=14)
         self._ghost_button(bottom, "Скачать обновления  ↗",
                            lambda: self._open("https://github.com/nikitawcnu-bit/subash-ai/releases")).pack(
             fill="x", padx=14)
-        ctk.CTkLabel(bottom, text="Сделано вместе с DeepSeek · v0.2.0",
+        ctk.CTkLabel(bottom, text="Сделано вместе с DeepSeek · v0.3.0",
                      text_color=DIM, font=("Segoe UI", 9)).pack(
-            fill="x", padx=22, pady=(10, 18), anchor="w")
+            fill="x", padx=22, pady=(6, 12), anchor="w")
 
         spacer = ctk.CTkFrame(sidebar, fg_color="transparent")
         spacer.pack(fill="both", expand=True)
@@ -242,11 +350,12 @@ class App:
         header = ctk.CTkFrame(main, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(header, text="Генерация текста", text_color=FG,
-                     font=("Segoe UI", 24, "bold"), anchor="w").grid(row=0, column=0, sticky="w")
-        ctk.CTkLabel(header, text="Продолжение в стиле Александра Сергеевича Пушкина",
-                     text_color=MUTED, font=("Segoe UI", 12), anchor="w").grid(
-            row=1, column=0, sticky="w", pady=(1, 0))
+        self.title_label = ctk.CTkLabel(header, text="Генерация", text_color=FG,
+                                        font=("Segoe UI", 24, "bold"), anchor="w")
+        self.title_label.grid(row=0, column=0, sticky="w")
+        self.subtitle_label = ctk.CTkLabel(header, text="", text_color=MUTED,
+                                           font=("Segoe UI", 12), anchor="w")
+        self.subtitle_label.grid(row=1, column=0, sticky="w", pady=(1, 0))
         self.status_pill = ctk.CTkLabel(
             header, text="●  модель загружена", fg_color="#102b3f", text_color="#7dd3fc",
             corner_radius=11, height=30, width=180, font=("Segoe UI", 11),
@@ -257,20 +366,19 @@ class App:
         prompt_card = ctk.CTkFrame(main, fg_color=CARD, corner_radius=16)
         prompt_card.grid(row=1, column=0, sticky="ew", pady=(20, 0))
         prompt_card.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(prompt_card, text="НАЧАЛО ФРАЗЫ", text_color=DIM,
-                     font=("Segoe UI", 10, "bold"), anchor="w").grid(
-            row=0, column=0, sticky="w", padx=20, pady=(16, 0))
+        self.prompt_caption = ctk.CTkLabel(prompt_card, text="НАЧАЛО", text_color=DIM,
+                                           font=("Segoe UI", 10, "bold"), anchor="w")
+        self.prompt_caption.grid(row=0, column=0, sticky="w", padx=20, pady=(16, 0))
         self.prompt_entry = ctk.CTkEntry(
             prompt_card, height=48, corner_radius=10, fg_color=ENTRY,
             border_color=BORDER, border_width=1, text_color=FG,
-            placeholder_text="Введите начало фразы…", font=("Segoe UI", 15),
+            placeholder_text="Введите начало…", font=("Segoe UI", 15),
         )
         self.prompt_entry.grid(row=1, column=0, sticky="ew", padx=(20, 12), pady=(8, 18))
-        self.prompt_entry.insert(0, DEFAULT_PROMPT)
         self.prompt_entry.bind("<Return>", lambda _e: self.on_generate())
 
         self.generate_button = ctk.CTkButton(
-            prompt_card, text="Продолжить текст", command=self.on_generate,
+            prompt_card, text="Сгенерировать", command=self.on_generate,
             width=176, height=48, corner_radius=10, fg_color=ACCENT,
             hover_color=ACCENT_HOVER, text_color="#06121f",
             font=("Segoe UI", 13, "bold"),
@@ -411,12 +519,14 @@ class App:
         self._busy = busy
         if busy:
             self.generate_button.configure(state="disabled", text="Генерирую…")
+            self.model_switch.configure(state="disabled")
             self.status_pill.configure(text="●  генерирую…", fg_color="#3a2a12",
                                        text_color="#fbbf24")
             self.progress.grid()
             self.progress.start()
         else:
-            self.generate_button.configure(state="normal", text="Продолжить текст")
+            self.generate_button.configure(state="normal", text=self.entry["button"])
+            self.model_switch.configure(state="normal")
             self.status_pill.configure(text="●  модель загружена", fg_color="#102b3f",
                                        text_color="#7dd3fc")
             self.progress.stop()
@@ -545,9 +655,9 @@ def main() -> None:
     import customtkinter as ctk
 
     ctk.set_appearance_mode("dark")
-    model, tokenizer = load_model()
+    models = load_models()
     root = ctk.CTk()
-    App(root, model, tokenizer)
+    App(root, models)
     root.mainloop()
 
 
